@@ -155,4 +155,5 @@ dmypy.json
 cython_debug/
 
 #directories
-ball-detector/Dataset
+ball_detector/Dataset
+ball_detector/TrackNetDataset
