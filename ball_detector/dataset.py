@@ -25,16 +25,17 @@ class TrackNetDataset(Dataset):
         return len(self.data)
 
     
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[np.ndarray]:
         images = []
         for image_id in self.data[index]:
-            image = cv.imread(os.path.join(self.images_path, image_id))
+            image = cv.imread(os.path.join(self.images_path, image_id), cv.COLOR_BGR2RGB)
             image = cv.resize(image, (self.width, self.height))
-            images.append(image)
+            images.append(image.astype(np.float32) / 255.0) 
             
         data = np.concatenate(images, axis=2)
-        label = cv.imread(os.path.join(self.labels_path, self.labels[index]))
-        label = cv.resize(label, (self.width, self.height))
+        data = np.transpose(data, (2, 0, 1)) #RGB, width, height
+        label = cv.imread(os.path.join(self.labels_path, self.labels[index]), cv.IMREAD_GRAYSCALE)
+        label = cv.resize(label, (self.width, self.height)).astype(np.long)
         return data, label
     
     
@@ -42,7 +43,7 @@ class TrackNetDataset(Dataset):
         curr_id = files[0][:3]
         i = k - 1
         while i < len(files):
-            if files[i][:3] != curr_id:
+            if i + k - 1 < len(files) and files[i][:3] != curr_id:
                 i += k - 1
                 curr_id = files[i][:3]
                 continue
