@@ -15,8 +15,8 @@ class TrackNetDataset(Dataset):
         self.width = width
         self.height = height
         
-        files = os.listdir(self.images_path)
-        labels = os.listdir(self.labels_path)
+        files = sorted(os.listdir(self.images_path))
+        labels = sorted(os.listdir(self.labels_path))
         self.__split_into_samples(k, files, labels)
         super().__init__()
         
