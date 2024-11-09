@@ -19,10 +19,10 @@ if __name__ == "__main__":
         "k": 3,
         "epochs": 200,
         "batch_size": 2,
-        "test_split": 0.1,
-        "val_split": 0.1,
+        "test_split": 0.01,
+        "val_split": 0.25,
         "random_seed": 42,
-        "dataset_partition": 10
+        "dataset_partition": 25
     }
     
     dataset = TrackNetDataset(
@@ -53,8 +53,8 @@ if __name__ == "__main__":
     model = TrackNet(in_channels=params["k"] * 3, out_channels=256)
     model = model.to(params["device"])
     train_loss, val_loss = train(train_loader, val_loader, model, params["epochs"], params["device"])
-
+    
     with open("train_loss.txt", "w", encoding="utf-8") as file:
-        file.write(train_loss)
-    with open("val_loss", "w", encoding="utf-8") as file:
-        file.write(val_loss)
+        file.write(str(train_loss))
+    with open("val_loss.txt", "w", encoding="utf-8") as file:
+        file.write(str(val_loss))

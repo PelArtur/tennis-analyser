@@ -5,7 +5,7 @@ import numpy as np
 from typing import List
 
 
-def extract_ground_truth(clip_id: int, images: List[int], input_path: str, labels: dict, out_im: str, out_lbl: str) -> None:
+def extract_ground_truth(clip_id: int, images: List[int], input_path: str, labels: dict, out_im: str, out_lbl: str, center_coord: List[tuple[str]]) -> None:
     clip_id_str = '0' * (3 - len(str(clip_id))) + str(clip_id)
     image_output_path = os.path.join(out_im,  clip_id_str) + '_'
     label_output_path = os.path.join(out_lbl, clip_id_str) + '_'
@@ -14,10 +14,12 @@ def extract_ground_truth(clip_id: int, images: List[int], input_path: str, label
         image_data = cv.imread(os.path.join(input_path, image))
         shape = (image_data.shape[0], image_data.shape[1], 1)
         label = np.zeros(shape)
-        label = cv.circle(label, labels[image], radius=5, color=255, thickness = -1)
+        if labels[image][0] != -1 and labels[image][1] != -1: 
+            label = cv.circle(label, labels[image], radius=5, color=255, thickness = -1)
         label = cv.GaussianBlur(label, (7, 7), 4)
         cv.imwrite(image_output_path + image, image_data)
         cv.imwrite(label_output_path + image[:-4] + ".png", label)
+        center_coord.append((clip_id_str + '_' + image, labels[image][0], labels[image][1]))
 
 
 def read_csv(path: str) -> dict:
@@ -40,15 +42,24 @@ def create_dataset(input_path: str, output_path: str) -> None:
         os.makedirs(os.path.join(output_path, "ground_truth"))
     
     clip_id = 0
-    for game in os.listdir(input_path):
+    center_coords_gd = [("file name", "x", "y")]
+    for game in sorted(os.listdir(input_path)):
         if game[:4] == "game":
-            for clip in os.listdir(os.path.join(input_path, game)):
+            for clip in sorted(os.listdir(os.path.join(input_path, game))):
                 if clip[:4] == "Clip":
                     dir_path = os.path.join(input_path, game, clip)
-                    files = os.listdir(os.path.join(input_path, game, clip))
+                    files = sorted(os.listdir(os.path.join(input_path, game, clip)))
                     images = files[:-1]
                     label = files[-1]
-                    
+
                     label_data = read_csv(os.path.join(dir_path, label))
-                    extract_ground_truth(clip_id, images, dir_path, label_data, os.path.join(output_path, "images"), os.path.join(output_path, "ground_truth"))
+                    extract_ground_truth(clip_id, images, dir_path, label_data, os.path.join(output_path, "images"), os.path.join(output_path, "ground_truth"), center_coords_gd)
                     clip_id += 1
+
+    with open(os.path.join(output_path, "coords.csv"), "w", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(center_coords_gd)
+
+
+if __name__ == "__main__":
+    create_dataset("./Dataset/", "./TrackNetDataset/")

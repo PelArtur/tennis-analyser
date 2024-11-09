@@ -47,7 +47,9 @@ class TrackNet(nn.Module):
             Conv(in_channels=64, out_channels=self.out_channels)
         )
 
+        self.soft_max = nn.Softmax(dim=1)
+
     def forward(self, x):
         x = self.vgg16(x)
         x = self.dnn(x)
-        return x 
+        return self.soft_max(x)
