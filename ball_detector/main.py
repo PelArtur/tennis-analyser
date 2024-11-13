@@ -50,8 +50,8 @@ if __name__ == "__main__":
     # test_loader = DataLoader(dataset, batch_size=params["batch_size"], sampler=test_sampler)
 
     torch.cuda.empty_cache() 
-    model = TrackNet(in_channels=params["k"] * 3, out_channels=256)
-    model = model.to(params["device"])
+    model = TrackNet(in_channels=params["k"] * 3, out_channels=256, training=True)
+    # model.load_state_dict(torch.load("model_best_first.pt", weights_only=True))
     train_loss, val_loss = train(train_loader, val_loader, model, params["epochs"], params["device"])
     
     with open("train_loss.txt", "w", encoding="utf-8") as file:

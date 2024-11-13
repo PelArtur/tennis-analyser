@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 class Conv(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3):
         super(Conv, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=1)
         self.relu = nn.ReLU()
@@ -12,10 +12,11 @@ class Conv(nn.Module):
 
 
 class TrackNet(nn.Module):
-    def __init__(self, in_channels: int = 9, out_channels: int = 256):
+    def __init__(self, in_channels: int = 9, out_channels: int = 256, training: bool =False):
         super().__init__()
         self.in_channels = in_channels    #RGB, 1 frame = 3 in_channels. 3 frames by default
         self.out_channels = out_channels
+        self.training = training
 
         self.vgg16 = nn.Sequential(
             Conv(in_channels=self.in_channels, out_channels=64),
@@ -52,4 +53,6 @@ class TrackNet(nn.Module):
     def forward(self, x):
         x = self.vgg16(x)
         x = self.dnn(x)
+        if self.training:
+            return x
         return self.soft_max(x)

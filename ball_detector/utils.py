@@ -95,9 +95,19 @@ def train(train_loader: DataLoader, val_loader: DataLoader, model: nn.Module, nu
             print(f"Accuracy: {(accuracy * 100):.2f}%")
             print(f"f1 score: {(f1_score * 100):.2f}%")
 
-            torch.save(model.state_dict(), "model.pt")
+            torch.save({
+                'epoch': epoch,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'loss': loss
+            }, "checkpoint.pt")
             if max_f1_score < f1_score:
                 max_f1_score = f1_score
-                torch.save(model.state_dict(), "model_best.pt")
+                torch.save({
+                    'epoch': epoch,
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'loss': loss
+                }, "model.pt")
 
     return train_loss_arr, val_loss_arr
