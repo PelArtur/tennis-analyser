@@ -1,5 +1,6 @@
 import os
 import torch
+import torch.version
 from dataset import TrackNetDataset
 from model import TrackNet
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -17,12 +18,12 @@ if __name__ == "__main__":
         "width": 640,
         "height": 360,
         "k": 3,
-        "epochs": 200,
+        "epochs": 30,
         "batch_size": 2,
         "test_split": 0.01,
         "val_split": 0.25,
         "random_seed": 42,
-        "dataset_partition": 25
+        "dataset_partition": 300
     }
     
     dataset = TrackNetDataset(
@@ -49,12 +50,13 @@ if __name__ == "__main__":
     val_loader = DataLoader(dataset, batch_size=params["batch_size"], sampler=val_sampler)
     # test_loader = DataLoader(dataset, batch_size=params["batch_size"], sampler=test_sampler)
 
+    checkpoint = torch.load("checkpoint.pt", weights_only=True, map_location="cpu")
     torch.cuda.empty_cache() 
     model = TrackNet(in_channels=params["k"] * 3, out_channels=256, training=True)
-    # model.load_state_dict(torch.load("model_best_first.pt", weights_only=True))
-    train_loss, val_loss = train(train_loader, val_loader, model, params["epochs"], params["device"])
+    model.load_state_dict(checkpoint['model'])
+    train_loss, val_loss = train(model, train_loader, val_loader, params["epochs"], params["device"], checkpoint)
     
-    with open("train_loss.txt", "w", encoding="utf-8") as file:
+    with open("train_loss3.txt", "w", encoding="utf-8") as file:
         file.write(str(train_loss))
-    with open("val_loss.txt", "w", encoding="utf-8") as file:
+    with open("val_loss3.txt", "w", encoding="utf-8") as file:
         file.write(str(val_loss))
