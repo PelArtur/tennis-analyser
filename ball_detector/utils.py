@@ -20,14 +20,17 @@ def extract_ball_center(image: np.ndarray) -> tuple[int]:
     return -1, -1
 
 
-def train(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, device: str = "cuda", checkpoint = None) -> List[List[float]]:
+def train(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, num_epochs: int, device: str = "cuda", checkpoint: nn.Module | None = None) -> List[List[float]]:
+    model.to(device)
     criterion = nn.CrossEntropyLoss() 
     optimizer = optim.Adadelta(model.parameters(), lr=1.0)
-    for state in optimizer.state.values():
-        for k, v in state.items():
-            if isinstance(v, torch.Tensor):
-                state[k] = v.to(device)
-    model.to(device)
+    if checkpoint is not None:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if isinstance(v, torch.Tensor):
+                    state[k] = v.to(device)
+
     max_f1_score: float = 0.0
     train_loss_arr: List[float] = []
     val_loss_arr: List[float] = []
@@ -90,14 +93,14 @@ def evaluate_model(model: nn.Module, test_loader: DataLoader, device: str = "cud
     fp = 0
     fn = 0
     with torch.no_grad():
-        for images, masks, x_gt, y_gt in test_loader:
+        for images, masks, x_gt, y_gt in tqdm(test_loader):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images).squeeze(1)
 
             loss = criterion(outputs, masks)
             test_loss += loss.item()
 
-            outputs = outputs.argmax(dim=1).detach().cpu().numpy()
+            outputs = outputs.argmax(dim=1).to('cpu').numpy()
             for i in range(len(outputs)):
                 x, y = extract_ball_center(outputs[i])
                 if x_gt[i] != -1 and y_gt[i] != -1:

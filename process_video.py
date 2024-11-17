@@ -8,6 +8,7 @@ from typing import List
 from ball_detector.model import TrackNet
 from ball_detector.utils import extract_ball_center
  
+
 def extract_frames(video_path: str) -> tuple[List[np.ndarray], int]:
     video = cv.VideoCapture(video_path)
     fps = int(video.get(cv.CAP_PROP_FPS))
@@ -66,7 +67,7 @@ if __name__ == "__main__":
     all_frames, fps = extract_frames(video_path)
 
     model = TrackNet()
-    model_data = torch.load("model_final.pt", weights_only=True, map_location="cpu")
+    model_data = torch.load("ball_detector.pt", weights_only=True, map_location="cpu")
     model.load_state_dict(model_data['model'])
     model.to("cuda")
 
