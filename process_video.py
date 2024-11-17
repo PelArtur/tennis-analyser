@@ -5,9 +5,14 @@ import torch.nn as nn
 from tqdm import tqdm
 from typing import List
 from ball_detector.model import TrackNet
+from ultralytics import YOLO
 from ball_detector.utils import extract_ball_center
 from court.help_functions import predict_keypoints, load_keypoints_model, draw_keypoints
+from players_detection.player_detection import tracker
 from torchvision import models, transforms
+
+previous_frame = [] 
+id_setter = 0 
 
 def extract_frames(video_path: str) -> tuple[List[np.ndarray], int]:
     video = cv.VideoCapture(video_path)
@@ -24,9 +29,11 @@ def extract_frames(video_path: str) -> tuple[List[np.ndarray], int]:
     return frames, fps
 
 
-def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, device: str, frames: List[np.ndarray], height: int = 360, width: int = 640) -> tuple[List[tuple[float]], List[tuple[float]]]:
+def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, model_players: YOLO, device: str, frames: List[np.ndarray], height: int = 360, width: int = 640) -> tuple[List[tuple[float]], List[tuple[float]], List[dict]]:
     ball_coords: List[tuple[float]] = [(-1.0, -1.0), (-1.0, -1.0)]
     keypoints_list: List[List[float]] = []
+    people_coords: List[dict] = []
+    previous_frame = []
     
     torch.cuda.empty_cache() 
     
@@ -50,10 +57,24 @@ def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, device: st
             keypoints = predict_keypoints(model_keypoints, device, frames[i])  
             keypoints_list.append(keypoints)
 
-    return ball_coords, keypoints_list
+            yolo_results = model_players.predict(source=frames[i], save=False, conf=0.3)
+            boxes = []
+            for box in yolo_results[0].boxes:
+                cls_name = yolo_results[0].names[int(box.cls[0])]
+                if cls_name == "player1":
+                    boxes.append(box.xyxy[0].tolist()) 
+
+            if len(boxes) < 2 and previous_frame:
+                boxes = [b[:4] for b in previous_frame[:2]]
+
+            this_frame, id_setter = tracker(boxes, previous_frame)
+            people_coords.append([{"coords": (x1, y1, x2, y2), "id": id_} for x1, y1, x2, y2, id_ in this_frame])
+            previous_frame = this_frame
+
+    return ball_coords, keypoints_list, people_coords
 
 
-def save_video(video_path: str, fps: int, frames: List[np.ndarray], ball_coords: List[tuple[float]], keypoints_list: List[List[float]], height: int = 360, width: int = 640) -> None:
+def save_video(video_path: str, fps: int, frames: List[np.ndarray], ball_coords: List[tuple[float]], keypoints_list: List[List[float]], player_coords: List[dict], height: int = 360, width: int = 640) -> None:
     out_height, out_width = frames[0].shape[0], frames[0].shape[1] 
     y_scaling, x_scaling = out_height / height, out_width / width
     
@@ -72,6 +93,13 @@ def save_video(video_path: str, fps: int, frames: List[np.ndarray], ball_coords:
         if i < len(keypoints_list):
             keypoints = keypoints_list[i]
             frame_with_keypoints = draw_keypoints(frame, keypoints)
+
+        if i < len(player_coords):  
+            for player in player_coords[i]:
+                x1, y1, x2, y2 = map(int, player["coords"])
+                id_ = player["id"]
+                cv.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Draw rectangle
+                cv.putText(frame, f"Player {id_}", (x1, y1 - 10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         
         output.write(frame_with_keypoints)
     output.release()
@@ -87,8 +115,9 @@ if __name__ == "__main__":
     ball_model.to("cuda")
 
     keypoints_model, device = load_keypoints_model("model_epoch_18.pth")
+    yolo_model = YOLO("final.pt")
 
-    ball_coords, keypoints_list = process_frames(ball_model, keypoints_model, device, all_frames)
+    ball_coords, keypoints_list, player_coords = process_frames(ball_model, keypoints_model, yolo_model, device, all_frames)
 
-    save_video('./output_with_ball_and_keypoints.mp4', fps, all_frames, ball_coords, keypoints_list)
+    save_video('./output_with_ball_and_keypoints.mp4', fps, all_frames, ball_coords, keypoints_list, player_coords)
     print("Output video saved at: ./output_with_ball_and_keypoints.mp4")
