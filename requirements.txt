@@ -1,8 +1,10 @@
-numpy==2.1.2
+numpy<2,>=1
 torch==2.5.0
 opencv-python==4.10.0.84
 matplotlib==3.9.2
 scikit-learn==1.5.2
 tqdm==4.66.6
 roboflow==1.1.0
-ultralytics==8.0.0 
+ultralytics==8.3.49
+sktime==0.35.0
+aeon==1.0.0
