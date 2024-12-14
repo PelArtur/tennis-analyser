@@ -10,6 +10,9 @@ from ball_detector.utils import extract_ball_center
 from court.help_functions import predict_keypoints, load_keypoints_model, draw_keypoints
 from players_detection.player_detection import tracker
 from torchvision import models, transforms
+from joblib import load
+from aeon.classification.interval_based import TimeSeriesForestClassifier
+from ball_bounce_detection.utils import add_features, process_bounce_points
 
 previous_frame = [] 
 id_setter = 0 
@@ -118,6 +121,10 @@ if __name__ == "__main__":
     yolo_model = YOLO("final.pt")
 
     ball_coords, keypoints_list, player_coords = process_frames(ball_model, keypoints_model, yolo_model, device, all_frames)
+
+    tsfc5: TimeSeriesForestClassifier = load('tsfc_size5.joblib')
+    tsfc10: TimeSeriesForestClassifier = load('tsfc_size10.joblib')
+    bounce_frames = process_bounce_points(add_features(ball_coords), tsfc5=tsfc5, tsfc10=tsfc10)
 
     save_video('./output_with_ball_and_keypoints.mp4', fps, all_frames, ball_coords, keypoints_list, player_coords)
     print("Output video saved at: ./output_with_ball_and_keypoints.mp4")

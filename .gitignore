@@ -157,3 +157,11 @@ cython_debug/
 #directories
 ball_detector/Dataset
 ball_detector/TrackNetDataset
+venv312
+
+#Local files for debugging. Redundant for git
+model_test.ipynb
+generate_ball_label.ipynb
+test_gaussian.ipynb
+test_model.ipynb
+graphics.ipynb
