@@ -71,6 +71,10 @@ def get_foot_position(bbox):
     x1, y1, x2, y2 = bbox
     return (int((x1 + x2) / 2), y2)
 
+def getposition(bbox):
+    x1, y1, x2, y2 = bbox
+    return (x2, y2)
+
 def get_height_of_bbox(bbox):
     return bbox[3]-bbox[1]
 
@@ -85,7 +89,7 @@ def get_closest_keypoint_index(point, keypoints, keypoint_indices):
    key_point_ind = keypoint_indices[0]
    for keypoint_indix in keypoint_indices:
        keypoint = keypoints[keypoint_indix*2], keypoints[keypoint_indix*2+1]
-       distance = ((point[0] - keypoint[0]) ** 2 + (point[1] - keypoint[1]) ** 2) ** 0.5
+       distance = abs((point[1] - keypoint[1]))
 
 
        if distance<closest_distance:
@@ -229,35 +233,34 @@ class MiniCourt():
         return self.drawing_key_points
 
     def get_mini_court_coordinates(self,
-                                   object_position,
-                                   closest_key_point, 
-                                   closest_key_point_index, 
-                                   player_height_in_pixels,
-                                   player_height_in_meters
-                                   ):
-        
+                                object_position,
+                                closest_key_point, 
+                                closest_key_point_index, 
+                                player_height_in_pixels,
+                                player_height_in_meters):
         distance_from_keypoint_x_pixels, distance_from_keypoint_y_pixels = measure_xy_distance(object_position, closest_key_point)
 
         distance_from_keypoint_x_meters = convert_pixel_distance_to_meters(distance_from_keypoint_x_pixels,
-                                                                           player_height_in_meters,
-                                                                           player_height_in_pixels
-                                                                           )
+                                                                        player_height_in_meters,
+                                                                        player_height_in_pixels)
         distance_from_keypoint_y_meters = convert_pixel_distance_to_meters(distance_from_keypoint_y_pixels,
-                                                                                player_height_in_meters,
-                                                                                player_height_in_pixels
-                                                                          )
+                                                                            player_height_in_meters,
+                                                                            player_height_in_pixels)
         
         mini_court_x_distance_pixels = self.convert_meters_to_pixels(distance_from_keypoint_x_meters)
         mini_court_y_distance_pixels = self.convert_meters_to_pixels(distance_from_keypoint_y_meters)
-        closest_mini_coourt_keypoint = ( self.drawing_key_points[closest_key_point_index*2],
-                                        self.drawing_key_points[closest_key_point_index*2+1]
-                                        )
-        
-        mini_court_player_position = (closest_mini_coourt_keypoint[0]+mini_court_x_distance_pixels,
-                                      closest_mini_coourt_keypoint[1]+mini_court_y_distance_pixels
-                                        )
 
-        return  mini_court_player_position
+        closest_mini_court_keypoint = (self.drawing_key_points[closest_key_point_index * 2],
+                                    self.drawing_key_points[closest_key_point_index * 2 + 1])
+
+        mini_court_player_position = (closest_mini_court_keypoint[0] + mini_court_x_distance_pixels,
+                                    closest_mini_court_keypoint[1] + mini_court_y_distance_pixels)
+
+        x = min(max(self.court_start_x, mini_court_player_position[0]), self.court_end_x - 1)
+        y = min(max(self.court_start_y, mini_court_player_position[1]), self.court_end_y - 1)
+
+        return (x, y)
+
     
     def convert_bounding_boxes_to_mini_court_coordinates(self, player_boxes, original_court_key_points):
         player_heights = {
@@ -271,18 +274,29 @@ class MiniCourt():
             for player_id, bbox in player_bbox.items():
                 foot_position = get_foot_position(bbox)
                 print(player_id)
+                frame_index_min = max(0, frame_num-20)
+                frame_index_max = min(len(player_boxes), frame_num+50)
+                bboxes_heights_in_pixels = [get_height_of_bbox(player_boxes[i][player_id]) for i in range (frame_index_min,frame_index_max)]
+                max_player_height_in_pixels = max(bboxes_heights_in_pixels)
 
-                closest_key_point_index = get_closest_keypoint_index(foot_position, original_court_key_points, [0, 2, 12, 13])
+                closest_key_point_index = get_closest_keypoint_index(foot_position, original_court_key_points, [0, 2, 13])
                 closest_key_point = (
                     original_court_key_points[closest_key_point_index * 2],
                     original_court_key_points[closest_key_point_index * 2 + 1]
                 )
+                if player_id == 0:
+                    max_player_height_in_pixels = 62
+                    foot_position = getposition(bbox)
+                    player_heights[0] = 1.60
 
+                    
+
+                
                 mini_court_player_position = self.get_mini_court_coordinates(
                     foot_position,
                     closest_key_point,
                     closest_key_point_index,
-                    160,
+                    max_player_height_in_pixels,
                     player_heights[player_id]
                 )
 
@@ -320,7 +334,7 @@ def tracker(this_frame, previous_frame):
 
 
     if not previous_frame:
-        return [[*box, id_setter + i] for i, box in enumerate(this_frame)], id_setter + len(this_frame) # just need to set ids for the first frame
+        return [[*box, id_setter + i] for i, box in enumerate(this_frame)], id_setter + len(this_frame) 
 
     this_center_point = [(int((x1 + x2) / 2), int((y1 + y2) / 2)) for x1, y1, x2, y2 in this_frame]
     previous_center_point = [(int((x1 + x2) / 2), int((y1 + y2) / 2), id_) for x1, y1, x2, y2, id_ in previous_frame]
@@ -369,7 +383,7 @@ model = load_model(model_path)
 transform = get_transform()
 
 video_path = "input_video.mp4"
-output_video_path = "output_video.avi"
+output_video_path = "output_video_final.avi"
 
 cap = cv2.VideoCapture(video_path)
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -397,11 +411,11 @@ while cap.isOpened():
     for box in results[0].boxes:
         cls_name = results[0].names[int(box.cls[0])]
         if cls_name == "player1":
-            boxes.append(box.xyxy[0].tolist())  # having coords [x1, y1, x2, y2]
+            boxes.append(box.xyxy[0].tolist())  
             confidences.append(box.conf[0].item())
 
     if len(boxes) < 2 and previous_frame:
-        boxes = [b[:4] for b in previous_frame[:2]]  # Use boxes from the previous frame if fewer than 2 players detected
+        boxes = [b[:4] for b in previous_frame[:2]] 
 
     this_frame, id_setter = tracker(boxes, previous_frame)
 
