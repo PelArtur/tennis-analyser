@@ -541,8 +541,6 @@ while cap.isOpened():
     cv2.circle(frame_with_mini_court, (int(new_coords[0] + mini_court.start_x), int(new_coords[1]+mini_court.start_y)), 2, (0, 0, 255), -1)
        
 
-    mini_court.draw_bounces(image_with_keypoints)
-
     speed1 = calculate_speed(previous_positions[0], player_positions[0], fps)
     speed2 = calculate_speed(previous_positions[1], player_positions[1], fps)
 
