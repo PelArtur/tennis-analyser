@@ -9,16 +9,21 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
+from collections import deque
+
 
 SINGLE_LINE_WIDTH = 8.23
 DOUBLE_LINE_WIDTH = 10.97
-HALF_COURT_LINE_HEIGHT = 11.88
+HALF_COURT_LINE_HEIGHT = 11.88 #height of the court / 2
 SERVICE_LINE_WIDTH = 6.4
 DOUBLE_ALLY_DIFFERENCE = 1.37
-NO_MANS_LAND_HEIGHT = 5.48
+NO_MANS_LAND_HEIGHT = 5.48 #width of the court / 2
+
+
 
 PLAYER_1_HEIGHT_METERS = 1.88
 PLAYER_2_HEIGHT_METERS = 1.91
+
 
 def read_video(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -363,6 +368,19 @@ def calculate_euclidian_distance(this_center_point, previous_center_point):
 
     return distances
 
+
+def calculate_speed(prev_pos, curr_pos, fps):
+    if prev_pos is None:
+        return 0
+    distance = ((curr_pos[0] - prev_pos[0]) ** 2 + (curr_pos[1] - prev_pos[1]) ** 2) ** 0.5
+    speed = distance * fps  
+
+    coefficient = HALF_COURT_LINE_HEIGHT / 500 # need to think about * 2
+    speed = speed * coefficient
+
+    return speed * 3.6
+
+
 model1 = YOLO("final.pt")
 model_path = "model_epoch_18.pth"
 model = load_model(model_path)
@@ -380,12 +398,21 @@ out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (
 
 mini_court = None
 previous_frame = []
+previous_positions = {0: None, 1: None}
+speed_buffer = {0: deque(maxlen=4), 1: deque(maxlen=4)}
+frame_counter = 0
 id_setter = 0
+smoothed_speed1, smoothed_speed2 = 0, 0
+speed_box_x, speed_box_y = 10, 10
+speed_box_width, speed_box_height = 200, 60 
+alpha = 0.5
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
+
+    frame_counter += 1
 
     if mini_court is None:
         mini_court = MiniCourt(frame)
@@ -437,10 +464,35 @@ while cap.isOpened():
     player_positions = mini_court.convert_bounding_boxes_to_mini_court_coordinates([player_boxes], keypoints)
     cv2.circle(frame_with_mini_court, (int(player_positions[0][0]), int(player_positions[0][1])), 5, (0, 255, 255), -1)
     cv2.circle(frame_with_mini_court, (int(player_positions[1][0]), int(player_positions[1][1])), 5, (0, 255, 255), -1)
-    print(player_positions)
+
+    speed1 = calculate_speed(previous_positions[0], player_positions[0], fps)
+    speed2 = calculate_speed(previous_positions[1], player_positions[1], fps)
+
+    speed_buffer[0].append(speed1)
+    speed_buffer[1].append(speed2)
+
+    if frame_counter % 4 == 0:
+        smoothed_speed1 = sum(speed_buffer[0]) / len(speed_buffer[0]) if len(speed_buffer[0]) > 0 else 0
+        smoothed_speed2 = sum(speed_buffer[1]) / len(speed_buffer[1]) if len(speed_buffer[1]) > 0 else 0
+        
+   
+    overlay = image_with_keypoints.copy()
+    
+    cv2.rectangle(overlay, (speed_box_x, speed_box_y), (speed_box_x + speed_box_width, speed_box_y + speed_box_height), (255, 255, 255), -1)
+    cv2.addWeighted(overlay, alpha, image_with_keypoints, 1 - alpha, 0, image_with_keypoints)
+
+    cv2.putText(image_with_keypoints, f"Player 0: {smoothed_speed1:.2f} km/h", (speed_box_x + 10, speed_box_y + 20),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+
+    cv2.putText(image_with_keypoints, f"Player 1: {smoothed_speed2:.2f} km/h", (speed_box_x + 10, speed_box_y + 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+
     out.write(frame_with_mini_court)
 
     previous_frame = this_frame
+
+    previous_positions[0] = player_positions[0]
+    previous_positions[1] = player_positions[1]
 
 cap.release()
 out.release()
