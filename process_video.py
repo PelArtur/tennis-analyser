@@ -13,6 +13,7 @@ from torchvision import models, transforms
 from joblib import load
 from aeon.classification.interval_based import TimeSeriesForestClassifier
 from ball_bounce_detection.utils import add_features, process_bounce_points
+import csv
 
 previous_frame = [] 
 id_setter = 0 
@@ -120,10 +121,23 @@ if __name__ == "__main__":
     yolo_model = YOLO("final.pt")
 
     ball_coords, keypoints_list, player_coords = process_frames(ball_model, keypoints_model, yolo_model, device, all_frames)
+    print(keypoints_list)
+    exit()
 
     tsfc5: TimeSeriesForestClassifier = load('tsfc_size5.joblib')
     tsfc10: TimeSeriesForestClassifier = load('tsfc_size10.joblib')
     bounce_frames = process_bounce_points(add_features(ball_coords), tsfc5=tsfc5, tsfc10=tsfc10)
+
+    with open('ball_coords.csv', 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+
+        csv_writer.writerow(['Frames', 'X', 'Y'])
+
+        for i, coords in enumerate(ball_coords, start=1):  # start=1 starts numbering from 1
+            x, y = coords  # Unpack the (x, y) coordinates
+            csv_writer.writerow([i, x, y])
+
+    print(bounce_frames)
 
     save_video('./output_with_ball_and_keypoints.mp4', fps, all_frames, ball_coords, keypoints_list, player_coords)
     print("Output video saved at: ./output_with_ball_and_keypoints.mp4")

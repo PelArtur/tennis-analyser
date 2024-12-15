@@ -10,6 +10,7 @@ import torch
 from ultralytics import YOLO
 
 from collections import deque
+import pandas
 
 
 SINGLE_LINE_WIDTH = 8.23
@@ -266,6 +267,30 @@ class MiniCourt():
 
         return (x, y)
 
+    def convert_ball_coordinates_to_mini_court(self, frame_num, ball_positions, original_court_key_points):
+        output_ball_positions = {}
+        
+        closest_key_point_index = get_closest_keypoint_index(
+            ball_positions, original_court_key_points, [0, 2, 12, 13]
+        )
+        closest_key_point = (
+            original_court_key_points[closest_key_point_index * 2],
+            original_court_key_points[closest_key_point_index * 2 + 1]
+        )
+
+        mini_court_ball_position = self.get_mini_court_coordinates(
+            ball_positions,
+            closest_key_point,
+            closest_key_point_index,
+            5, 
+            0.067 
+        )
+
+        output_ball_positions[frame_num] = mini_court_ball_position
+        self.bounce_points.append(output_ball_positions[frame_num])
+        return output_ball_positions[frame_num]
+
+    
     
     def convert_bounding_boxes_to_mini_court_coordinates(self, player_boxes, original_court_key_points):
         player_heights = {
@@ -395,6 +420,18 @@ def calculate_speed(prev_pos, curr_pos, fps):
     return speed * 3.6
 
 
+def project_to_minimap(x_3d, y_3d, field_bounds, map_size):
+
+    (x_min, x_max), (y_min, y_max) = field_bounds
+    map_width, map_height = map_size
+
+    x_2d = (x_3d - x_min) / (x_max - x_min) * map_width
+    y_2d = (y_3d - y_min) / (y_max - y_min) * map_height
+
+
+    return x_2d, y_2d
+
+
 model1 = YOLO("final.pt")
 model_path = "model_epoch_18.pth"
 model = load_model(model_path)
@@ -406,7 +443,13 @@ output_video_path = "output_video_final.avi"
 cap = cv2.VideoCapture(video_path)
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
 fps = int(cap.get(cv2.CAP_PROP_FPS))
+
+ball_bounces = pandas.read_csv("ball_coords.csv")
+bounce_coordinates = ball_bounces[ball_bounces['Frames'].notna()]
+
+bounce_dict = {row['Frames']: (row['X'], row['Y']) for _, row in bounce_coordinates.iterrows()}
 
 out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'XVID'), fps, (frame_width, frame_height))
 
@@ -478,6 +521,16 @@ while cap.isOpened():
     player_positions = mini_court.convert_bounding_boxes_to_mini_court_coordinates([player_boxes], keypoints)
     cv2.circle(frame_with_mini_court, (int(player_positions[0][0]), int(player_positions[0][1])), 5, (0, 255, 255), -1)
     cv2.circle(frame_with_mini_court, (int(player_positions[1][0]), int(player_positions[1][1])), 5, (0, 255, 255), -1)
+
+
+    ball_coords = bounce_dict[frame_counter]
+    # positions = mini_court.convert_ball_coordinates_to_mini_court(frame_counter, ball_coords, keypoints)
+
+    new_coords = project_to_minimap(ball_coords[0], ball_coords[1], ((199.8, 1076), (207.2, 532.76)), (250, 500))
+    cv2.circle(frame_with_mini_court, (int(new_coords[0] + mini_court.start_x), int(new_coords[1]+mini_court.start_y)), 2, (0, 0, 255), -1)
+       
+
+    mini_court.draw_bounces(image_with_keypoints)
 
     speed1 = calculate_speed(previous_positions[0], player_positions[0], fps)
     speed2 = calculate_speed(previous_positions[1], player_positions[1], fps)
