@@ -33,6 +33,7 @@ def extract_frames(video_path: str) -> tuple[List[np.ndarray], int]:
 
 
 def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, model_players: YOLO, device: str, frames: List[np.ndarray], height: int = 360, width: int = 640) -> tuple[List[tuple[float]], List[tuple[float]], List[dict]]:
+    y_scaling, x_scaling = frames[0].shape[0] / height, frames[0].shape[1] / width
     ball_coords: List[tuple[float]] = [(-1.0, -1.0), (-1.0, -1.0)]
     keypoints_list: List[List[float]] = []
     people_coords: List[dict] = []
@@ -55,7 +56,7 @@ def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, model_play
             
             output = model_ball(torch.tensor(np.array([input])).to(device))
             x, y = extract_ball_center(output.argmax(dim=1).to('cpu').numpy()[0])
-            ball_coords.append((x, y))
+            ball_coords.append((x * x_scaling, y * y_scaling))
             
             keypoints = predict_keypoints(model_keypoints, device, frames[i])  
             keypoints_list.append(keypoints)
@@ -78,9 +79,7 @@ def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, model_play
 
 
 def save_video(video_path: str, fps: int, frames: List[np.ndarray], ball_coords: List[tuple[float]], keypoints_list: List[List[float]], player_coords: List[dict], height: int = 360, width: int = 640) -> None:
-    out_height, out_width = frames[0].shape[0], frames[0].shape[1] 
-    y_scaling, x_scaling = out_height / height, out_width / width
-    
+    out_height, out_width = frames[0].shape[0], frames[0].shape[1]    
     output = cv.VideoWriter(video_path, cv.VideoWriter_fourcc(*'mp4v'), fps, (out_width, out_height))
     
     for i in tqdm(range(len(frames))):
@@ -89,7 +88,7 @@ def save_video(video_path: str, fps: int, frames: List[np.ndarray], ball_coords:
         for j in range(10):
             if i - j >= 0 and ball_coords[i - j][0] != -1 and ball_coords[i - j][1] != -1:
                 overlay = frame.copy()
-                overlay = cv.circle(frame, (int(ball_coords[i - j][0] * x_scaling), int(ball_coords[i - j][1] * y_scaling)), int(5 - 0.5 * j), (0, 0, 255), -1)
+                overlay = cv.circle(frame, (int(ball_coords[i - j][0]), int(ball_coords[i - j][1])), int(5 - 0.5 * j), (0, 0, 255), -1)
                 alpha = 1 - 0.1 * j
                 frame = cv.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
         
