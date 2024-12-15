@@ -140,6 +140,17 @@ class MiniCourt():
         self.set_court_drawing_key_points()
         self.set_court_lines()
 
+    def draw_bounces(self, frame):
+        print(self.bounce_points)
+        for point in self.bounce_points:
+            cv2.circle(
+            frame,            
+            (int(point[0]), int(point[1])), 
+            10,                 
+            (0, 0, 255),       
+            -1                 
+        )
+
 
     def convert_meters_to_pixels(self, meters):
         return convert_meters_to_pixel_distance(meters,
