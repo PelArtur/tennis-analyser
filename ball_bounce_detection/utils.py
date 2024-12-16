@@ -155,40 +155,14 @@ def delete_outofbound_points(dataset_data: List[List[int | float]]) -> List[List
     return x_data, y_data
 
 
-# def process_bounce_points(dataset_data: List[List[int | float]], tsfc5: TimeSeriesForestClassifier, tsfc10: TimeSeriesForestClassifier) -> List[int]:
-#     print(f"Input size: {len(dataset_data)}")
-#     windows, indices = split_data_with_ind(dataset_data, 10, features_range=(0, 4))
-#     windows = reshape_data(windows, window_size=10)
-#     is_bounce: List[bool] = [False for _ in range(len(dataset_data))]
-
-#     predicts = tsfc10.predict(np.array(windows, dtype=np.float32))
-#     for i in range(len(windows) - 1):
-#         if indices[i + 1] - indices[i] == 1 and predicts[i + 1] == 0 and predicts[i] == 1:
-#             is_bounce[i] = True
-
-#     windows, indices = split_data_with_ind(dataset_data, 5, features_range=(0, 4))
-#     windows = reshape_data(windows, window_size=5)  
-
-#     predicts = tsfc5.predict(np.array(windows, dtype=np.float32))
-#     for i in range(len(windows) - 10, len(windows) - 1):
-#         if indices[i + 1] - indices[i] == 1 and predicts[i + 1] == 0 and predicts[i] == 1:
-#             is_bounce[i] = True
-
-#     bounce_frames: List[int] = []
-#     for i in range(len(is_bounce)):
-#         if is_bounce[i]:
-#             bounce_frames.append(i)
-#     return bounce_frames
-
-
 def process_bounce_points(dataset_data: List[List[int | float]], tsfc15: TimeSeriesForestClassifier) -> List[int]:
     windows, indices = split_data_with_ind(dataset_data, 15, features_range=(0, 7))
     windows = reshape_data(windows, window_size=15)
     is_bounce: List[bool] = [False for _ in range(len(dataset_data))]
 
     predicts = tsfc15.predict(np.array(windows, dtype=np.float32))
-    for i in range(len(windows) - 1):
-        if indices[i + 1] - indices[i] == 1 and predicts[i + 1] == 0 and predicts[i] == 1:
+    for i in range(2, len(windows) - 1):
+        if indices[i + 1] - indices[i] == 1 and predicts[i + 1] == 0 and predicts[i] == 1 and i > 4:
             is_bounce[i] = True
 
     bounce_frames: List[int] = []

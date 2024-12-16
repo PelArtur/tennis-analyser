@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 import torch
+import argparse
 import torch.nn as nn
 from tqdm import tqdm
 from typing import List
@@ -13,6 +14,7 @@ from torchvision import models, transforms
 from joblib import load
 from aeon.classification.interval_based import TimeSeriesForestClassifier
 from ball_bounce_detection.utils import add_features, process_bounce_points
+from ball_bounce_detection.interpolation import interpolation
 import csv
 
 previous_frame = [] 
@@ -57,7 +59,7 @@ def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, model_play
             
             output = model_ball(torch.tensor(np.array([input])).to(device))
             x, y = extract_ball_center(output.argmax(dim=1).to('cpu').numpy()[0])
-            ball_coords.append((x * x_scaling, y * y_scaling))
+            ball_coords.append((x * x_scaling if x != -1 else -1, y * y_scaling if y != -1 else -1))
             
             keypoints = predict_keypoints(model_keypoints, device, frames[i])  
             keypoints_list.append(keypoints)
@@ -76,6 +78,7 @@ def process_frames(model_ball: nn.Module, model_keypoints: nn.Module, model_play
             people_coords.append([{"coords": (x1, y1, x2, y2), "id": id_} for x1, y1, x2, y2, id_ in this_frame])
             previous_frame = this_frame
 
+    interpolation(ball_coords)
     return ball_coords, keypoints_list, people_coords
 
 
@@ -109,7 +112,12 @@ def save_video(video_path: str, fps: int, frames: List[np.ndarray], ball_coords:
 
 
 if __name__ == "__main__":
-    video_path = './input_video.mp4'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', type=str)
+    parser.add_argument('-o', '--output', type=str)
+    args = parser.parse_args()
+
+    video_path = args.input
     all_frames, fps = extract_frames(video_path)
 
     ball_model = TrackNet()
@@ -121,12 +129,9 @@ if __name__ == "__main__":
     yolo_model = YOLO("final.pt")
 
     ball_coords, keypoints_list, player_coords = process_frames(ball_model, keypoints_model, yolo_model, device, all_frames)
-    print(keypoints_list)
-    exit()
 
-    tsfc5: TimeSeriesForestClassifier = load('tsfc_size5.joblib')
-    tsfc10: TimeSeriesForestClassifier = load('tsfc_size10.joblib')
-    bounce_frames = process_bounce_points(add_features(ball_coords), tsfc5=tsfc5, tsfc10=tsfc10)
+    tsfc15: TimeSeriesForestClassifier = load('tsfc_size15.joblib')
+    bounce_frames = process_bounce_points(add_features(ball_coords), tsfc15=tsfc15)
 
     with open('ball_coords.csv', 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
@@ -137,7 +142,5 @@ if __name__ == "__main__":
             x, y = coords  # Unpack the (x, y) coordinates
             csv_writer.writerow([i, x, y])
 
-    print(bounce_frames)
-
-    save_video('./output_with_ball_and_keypoints.mp4', fps, all_frames, ball_coords, keypoints_list, player_coords)
-    print("Output video saved at: ./output_with_ball_and_keypoints.mp4")
+    save_video(args.output, fps, all_frames, ball_coords, keypoints_list, player_coords)
+    print(f"Output video saved at: {args.output}")
