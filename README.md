@@ -43,3 +43,6 @@ Input            |  Output
 ## Future Plans
 - Enhance the accuracy of the **bounce detector**, potentially by selecting a different model.
 - Explore transferring this problem to 3D by utilizing additional tools to create a 3D reconstruction of the scene.
+
+## References
+- Yu-Chuan Huang, "TrackNet: Tennis Ball Tracking from Broadcast Video by Deep Learning Networks," Master Thesis, advised by Tsì-Uí İk and Guan-Hua Huang, National Chiao Tung University, Taiwan, April 2018.
