@@ -4,20 +4,9 @@ The **tennis analyser** is a system of deep learning networks designed to extrac
 
 This project was developed as part of the Artificial Intelligence course during the third year of the Computer Science program at the Ukrainian Catholic University.
 
-<table>
-    <tr>
-        <td>
-            <video width="320" height="240" controls>
-                <source src="./videos/video1.mp4" type="video/mp4">
-            </video>
-        </td>
-        <td>
-            <video width="320" height="240" controls>
-                <source src="./videos/video2.mp4" type="video/mp4">
-            </video>
-        </td>
-    </tr>
-</table>
+Input            |  Output
+:-------------------------:|:-------------------------:
+![input1](./videos/video2.gif)  |  ![input2](./videos/output2.gif)
 
 
 
@@ -51,3 +40,6 @@ This project was developed as part of the Artificial Intelligence course during 
     python3 process_video.py -i ./videos/video1.mp4 -o ./output_video.moy
     ```
 
+## Future Plans
+- Enhance the accuracy of the **bounce detector**, potentially by selecting a different model.
+- Explore transferring this problem to 3D by utilizing additional tools to create a 3D reconstruction of the scene.
